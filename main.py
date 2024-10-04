@@ -1,3 +1,4 @@
+import argparse
 from utils.message_retriever import retrieve_messages_list
 from utils.json_exporter import export_to_json
 from utils.extract_messages_infos import extract_messages_info
@@ -9,9 +10,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Example usage
-if __name__ == "__main__":
 
+def main(model):
     # Create a list of thread ids to extract messages and to anonymize
     thread_ids = []
 
@@ -41,9 +41,9 @@ if __name__ == "__main__":
                 raw_threads.append(messages_dict)
 
                 # Anonymize the messages object and write anonymized output to a file for storage
-                # Method either 'huugingface' or 'spacy'
+                # Use the 'model' parameter here
                 messages_dict_anonymized = anonymize_messages_object(
-                    messages_dict, method="huggingface"
+                    messages_dict, method=model
                 )
                 anonymized_threads.append(messages_dict_anonymized)
 
@@ -64,3 +64,22 @@ if __name__ == "__main__":
         export_messages(anonymized_threads)
     else:
         print("No anonymized threads to export.")
+
+
+if __name__ == "__main__":
+    # Set up command-line argument parsing
+    parser = argparse.ArgumentParser(
+        description="Anonymize messages using a specified model."
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        choices=["huggingface", "spacy"],
+        required=True,
+        help="Specify the anonymization model to use ('huggingface' or 'spacy').",
+    )
+
+    args = parser.parse_args()
+
+    # Run the main function with the selected model
+    main(args.model)
