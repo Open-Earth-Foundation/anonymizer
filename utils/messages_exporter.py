@@ -8,6 +8,7 @@ def export_messages(anonymized_threads):
     try:
         conn = connect_to_db()
         cur = conn.cursor()
+        current_timestamp = datetime.now()
 
         for item in anonymized_threads:
             # Extract meta_data
@@ -21,17 +22,23 @@ def export_messages(anonymized_threads):
                 )
                 continue
 
-            # Update AssistantThread with assistant_id
+            # Update AssistantThread with assistant_id, created, and last_updated
             upsert_thread_query = """
             INSERT INTO public."AssistantThread" (
                 assistant_thread_id,
-                assistant_id
-            ) VALUES (%s, %s)
+                assistant_id,
+                created,
+                last_updated
+            ) VALUES (%s, %s, %s, %s)
             ON CONFLICT (assistant_thread_id) DO UPDATE SET
-                assistant_id = EXCLUDED.assistant_id
+                assistant_id = EXCLUDED.assistant_id,
+                last_updated = EXCLUDED.last_updated
             WHERE public."AssistantThread".assistant_id IS DISTINCT FROM EXCLUDED.assistant_id;
             """
-            cur.execute(upsert_thread_query, (thread_id, assistant_id))
+            cur.execute(
+                upsert_thread_query,
+                (thread_id, assistant_id, current_timestamp, current_timestamp),
+            )
 
             # Process messages
             messages = item.get("messages", [])
@@ -48,17 +55,19 @@ def export_messages(anonymized_threads):
                     continue
 
                 # Convert UNIX timestamp to datetime
-                created_at = datetime.fromtimestamp(created_at_unix)
+                message_timestamp = datetime.fromtimestamp(created_at_unix)
 
                 # Insert into AssistantMessages
                 insert_message_query = """
-                INSERT INTO public."AssistantMessages" (
+                INSERT INTO public."AssistantMessage" (
                     assistant_message_id,
                     thread_id,
                     role,
-                    created_at,
-                    content
-                ) VALUES (%s, %s, %s, %s, %s)
+                    timestamp,
+                    content,
+                    created,
+                    last_updated
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (assistant_message_id) DO NOTHING;
                 """
                 cur.execute(
@@ -67,8 +76,10 @@ def export_messages(anonymized_threads):
                         assistant_message_id,
                         thread_id,  # The ThreadID from meta_data
                         role,
-                        created_at,
+                        message_timestamp,
                         content,
+                        current_timestamp,
+                        current_timestamp,
                     ),
                 )
 
