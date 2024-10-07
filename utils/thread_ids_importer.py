@@ -3,13 +3,21 @@ from utils.db_connector import connect_to_db
 
 
 def import_thread_ids():
-    # Connect to Db
+    """
+    This function imports the thread ids from the database.
+    It only imports the thread ids from 'AssistantThread' that are not yet in 'AssistantMessage' and therfore have not been processed yet.
+    """
+
     try:
-        # Call the function to get the connection object
         conn = connect_to_db()
         with conn.cursor() as cur:
-            # Filter by empty assistant_id
-            query = 'SELECT assistant_thread_id FROM public."AssistantThread" WHERE assistant_id IS NULL;'
+            query = """
+            SELECT assistant_thread_id
+            FROM public."AssistantThread"
+            WHERE assistant_thread_id NOT IN (
+                SELECT DISTINCT thread_id FROM public."AssistantMessage"
+            );
+            """
             cur.execute(query)
             thread_ids = [row[0] for row in cur.fetchall()]
         conn.close()
